@@ -1,0 +1,5 @@
+streamlit>=1.37
+pandas>=2.2
+numpy>=1.26
+lifelines>=0.29
+faker>=25.0

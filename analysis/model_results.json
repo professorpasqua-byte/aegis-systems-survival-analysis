@@ -1,0 +1,55 @@
+{
+  "n_subjects": 800,
+  "n_events": 311,
+  "n_censored": 489,
+  "overall_median_survival_months": Infinity,
+  "km_by_team": {
+    "Platform Infrastructure": {
+      "median_survival_months": Infinity,
+      "n": 179
+    },
+    "DevOps / SRE": {
+      "median_survival_months": Infinity,
+      "n": 140
+    },
+    "Backend Engineering": {
+      "median_survival_months": 36.0,
+      "n": 232
+    },
+    "Data Engineering": {
+      "median_survival_months": Infinity,
+      "n": 143
+    },
+    "ML Platform": {
+      "median_survival_months": Infinity,
+      "n": 106
+    }
+  },
+  "cox_hazard_ratios": {
+    "mobility": {
+      "hazard_ratio": 1.433189659278694,
+      "p_value": 0.39605186674025106
+    },
+    "tenure_at_start": {
+      "hazard_ratio": 0.9961249904871758,
+      "p_value": 0.24227734407814172
+    },
+    "start_ai_anxiety": {
+      "hazard_ratio": 2.860391811904098,
+      "p_value": 6.91057668127359e-39
+    },
+    "start_psych_safety": {
+      "hazard_ratio": 0.32869816142194375,
+      "p_value": 1.3672605132351248e-54
+    },
+    "max_downsize_ratio": {
+      "hazard_ratio": 49.67239701803838,
+      "p_value": 0.0006149850695125421
+    },
+    "any_reorg": {
+      "hazard_ratio": 1.2285203241321387,
+      "p_value": 0.07150022909192758
+    }
+  },
+  "cox_concordance": 0.7934259176905581
+}
