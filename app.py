@@ -100,7 +100,7 @@ baseline_quiet_quit_rate = 1 - baseline_survival_36
 # Header
 # ----------------------------------------------------------------------
 
-st.title("🧭 Aegis Systems: Does low attrition mean a team is healthy?")
+st.title("⚖️ Aegis Systems: Does low attrition mean a team is healthy?")
 st.caption(
     "A synthetic survival analysis on a fictional company going through AI driven "
     "restructuring. Inspired by the 225,000+ real tech layoffs tracked by SkillSyncer "
