@@ -6,8 +6,6 @@
 
 **Does low attrition mean a team is healthy, or are people just stuck?**
 
-[Live dashboard](https://aegis-systems-survival-analysis-tnnbzkort5zuxjsj8lkj67.streamlit.app/)
-
 ## Context
 
 On March 31, 2026, Oracle began cutting jobs worldwide, with termination emails reportedly landing in employees' inboxes around 6 a.m. Early estimates put the number between 20,000 and 30,000 people, and SkillSyncer's layoffs tracker lists it as the largest single layoff of 2026 at 30,000. CNBC later put the final tally at 21,000, and Oracle started another round of cuts in September. The reductions were widely reported as tied to funding the company's AI infrastructure buildout. Sources: [Forbes](https://www.forbes.com/sites/maryroeloffs/2026/06/23/ai-cost-21000-jobs-at-oracle-this-year-and-more-layoffs-could-be-coming/), [Computerworld's 2026 layoffs timeline](https://www.computerworld.com/article/3816579/tech-layoffs-this-year-a-timeline.html), and the [SkillSyncer Layoffs Tracker](https://skillsyncer.com/layoffs-tracker).
