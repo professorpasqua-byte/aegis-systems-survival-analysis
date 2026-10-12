@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Aegis Systems: does low attrition mean a team is healthy?</title>
+<meta name="description" content="A survival analysis of quiet quitting in a fictional 800 person engineering department going through AI driven layoffs. Built with Python, lifelines and Streamlit on synthetic data.">
+<meta name="theme-color" content="#1c1818">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231f6e96'/%3E%3Cpath d='M5 8h6v6h7v6h9' fill='none' stroke='%23ffffff' stroke-width='3' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Newsreader:ital,opsz,wght@0,6..72,400..600;1,6..72,400..600&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --white:#ffffff;
+  --mist:#f2f2f2;
+  --sky:#e4edf3;
+  --sky-deep:#bfd5e2;
+  --blue:#1f6e96;
+  --blue-deep:#0e5673;
+  --ink:#1d2b36;
+  --ink-soft:#4d5f6b;
+  --line:#dde3e7;
+  --head:'Bricolage Grotesque','Segoe UI',system-ui,-apple-system,sans-serif;
+  --body:'Newsreader',Georgia,'Times New Roman',serif;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+body{
+  margin:0;background:var(--white);color:var(--ink);
+  font-family:var(--body);font-size:1.125rem;line-height:1.68;
+  overflow-x:hidden;
+}
+[id]{scroll-margin-top:64px}
+a{color:var(--blue-deep);text-decoration-thickness:1px;text-underline-offset:3px}
+a:hover{color:var(--blue)}
+:focus-visible{outline:3px solid var(--blue);outline-offset:3px;border-radius:4px}
+p{margin:0 0 1.1em}
+.wrap{max-width:40rem;margin:0 auto;padding:0 1.25rem}
+.wide{max-width:52rem;margin:0 auto;padding:0 1.25rem}
+
+/* top bar */
+.bar{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.94);backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+.bar-in{max-width:52rem;margin:0 auto;padding:0 1.25rem;height:52px;display:flex;align-items:center;justify-content:space-between}
+.brand{font-family:var(--head);font-weight:700;font-size:1.05rem;color:var(--ink);text-decoration:none;letter-spacing:-.01em}
+details.menu{position:relative}
+details.menu summary{
+  list-style:none;cursor:pointer;font-family:var(--head);font-weight:600;font-size:.95rem;
+  padding:.45rem .9rem;border-radius:999px;background:var(--sky);color:var(--ink);
+}
+details.menu summary::-webkit-details-marker{display:none}
+details.menu[open] summary{background:var(--sky-deep)}
+.menu-list{
+  position:absolute;right:0;top:calc(100% + 8px);width:15rem;background:var(--white);
+  border:1px solid var(--line);border-radius:14px;padding:.4rem;box-shadow:0 12px 30px rgba(20,56,90,.12);
+}
+.menu-list a{display:block;padding:.6rem .8rem;border-radius:9px;text-decoration:none;font-family:var(--head);font-weight:500;font-size:.98rem;color:var(--ink)}
+.menu-list a:hover{background:var(--mist)}
+
+/* hero */
+.hero{background:var(--sky);padding:2.2rem 0 2.6rem}
+h1{
+  font-family:var(--head);font-weight:700;font-size:clamp(2.35rem,8.4vw,4.2rem);
+  line-height:1.02;letter-spacing:-.03em;margin:0 0 1rem;max-width:14ch;
+}
+.lede{font-size:1.2rem;line-height:1.55;color:var(--ink);max-width:36rem;margin-bottom:1.6rem}
+
+/* chart panel */
+.panel{background:var(--white);border-radius:18px;padding:1rem .9rem 1.1rem;border:1px solid var(--sky-deep)}
+.panel h2{font-family:var(--head);font-size:1.05rem;font-weight:600;margin:.1rem .2rem .2rem;letter-spacing:-.005em}
+.panel .sub{font-size:.92rem;color:var(--ink-soft);margin:0 .2rem .5rem;line-height:1.45}
+#km{display:block;width:100%;height:auto;touch-action:pan-y;cursor:crosshair;user-select:none;-webkit-user-select:none}
+#km text{font-family:var(--head);fill:var(--ink-soft);font-size:10px}
+.gridline{stroke:var(--line);stroke-width:1}
+.gridline.half{stroke:var(--sky-deep);stroke-dasharray:4 4}
+.wave{stroke:var(--sky-deep);stroke-width:1.2;stroke-dasharray:2 3}
+.curve{fill:none;stroke-linejoin:round;stroke-linecap:butt;transition:opacity .2s}
+.curve.team{stroke-width:1.7;opacity:.9}
+.curve.all{stroke:var(--ink);stroke-width:3.2}
+.draw{stroke-dasharray:1;stroke-dashoffset:1;animation:draw 2.4s cubic-bezier(.3,.6,.2,1) .15s forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.dim{opacity:.13 !important}
+#cursor{stroke:var(--ink);stroke-width:1;opacity:.55}
+.readout{margin-top:.4rem;font-family:var(--head)}
+.readout-head{display:flex;justify-content:space-between;align-items:baseline;gap:.5rem;padding:.2rem .2rem .5rem}
+.readout-head strong{font-size:1.02rem;font-weight:700}
+.readout-head span{font-size:.85rem;color:var(--ink-soft)}
+.keyrow{
+  display:grid;grid-template-columns:22px 1fr auto;align-items:center;gap:.6rem;width:100%;
+  padding:.5rem .5rem;border:0;border-radius:10px;background:transparent;cursor:pointer;text-align:left;
+  font:inherit;color:var(--ink);font-size:.95rem;
+}
+.keyrow:hover{background:var(--mist)}
+.keyrow[aria-pressed="true"]{background:var(--sky)}
+.keyrow .sw{width:22px;height:0;border-top:3px solid currentColor;border-radius:2px}
+.keyrow .v{font-variant-numeric:tabular-nums;font-weight:600}
+.keyrow.all{font-weight:700}
+.note{font-size:.88rem;color:var(--ink-soft);line-height:1.5;margin:.8rem .2rem 0}
+
+/* sections */
+section.block{padding:3.4rem 0 0}
+section.tint{background:var(--mist);padding:3.4rem 0 3.6rem;margin-top:3.4rem}
+h2.sec{font-family:var(--head);font-weight:700;font-size:clamp(1.7rem,5.4vw,2.3rem);letter-spacing:-.02em;line-height:1.1;margin:0 0 1.1rem}
+h3{font-family:var(--head);font-weight:600;font-size:1.15rem;letter-spacing:-.01em;margin:2rem 0 .5rem}
+.src{font-size:.95rem;color:var(--ink-soft)}
+
+dl.frames{margin:1.4rem 0 0}
+dl.frames dt{font-family:var(--head);font-weight:600;font-size:1.08rem;margin-top:1.4rem}
+dl.frames dd{margin:.25rem 0 0;padding-left:1rem;border-left:3px solid var(--sky-deep)}
+
+.aside{background:var(--sky);border-radius:14px;padding:1rem 1.15rem;margin:1.6rem 0;font-size:1.02rem}
+.aside strong{font-family:var(--head)}
+
+/* team bars */
+.teams{list-style:none;margin:1.2rem 0 0;padding:0}
+.teams li{margin:0 0 .9rem}
+.teams .t{display:flex;justify-content:space-between;gap:1rem;font-family:var(--head);font-size:.98rem;font-weight:500}
+.teams .t span:last-child{color:var(--ink-soft);font-variant-numeric:tabular-nums;font-weight:400}
+.track{height:12px;border-radius:99px;background:var(--sky);margin-top:.3rem;overflow:hidden}
+.track i{display:block;height:100%;border-radius:99px;background:var(--blue)}
+
+.status{margin:1.2rem 0 0;padding:0;list-style:none}
+.status li{padding:.75rem 0;border-top:1px solid var(--line)}
+.status li:last-child{border-bottom:1px solid var(--line)}
+.status b{font-family:var(--head);font-weight:600}
+
+figure{margin:1.4rem 0 0}
+figure svg{display:block;width:100%;height:auto}
+figcaption{font-size:.92rem;color:var(--ink-soft);margin-top:.5rem;line-height:1.5}
+.cens text{font-family:var(--head);font-size:10.5px;fill:var(--ink)}
+.cens .ax{fill:var(--ink-soft);font-size:9.5px}
+
+/* hazard chart */
+.hz{margin:1.4rem 0 0;padding:0;list-style:none}
+.hz li{margin:0 0 1.15rem}
+.hz .lab{display:flex;justify-content:space-between;gap:1rem;font-family:var(--head);font-size:.95rem;line-height:1.3}
+.hz .lab b{font-weight:600}
+.hz .lab em{font-style:normal;font-variant-numeric:tabular-nums;font-weight:700}
+.hz .rail{position:relative;height:18px;margin-top:.35rem;background:var(--mist);border-radius:6px}
+.hz .rail::after{content:"";position:absolute;left:50%;top:-3px;bottom:-3px;width:2px;background:var(--ink-soft);opacity:.55}
+.hz .fill{position:absolute;top:2px;bottom:2px;border-radius:4px;background:var(--blue)}
+.hz .fill.ns{background:transparent;border:2px solid var(--blue);top:1px;bottom:1px;opacity:.75}
+.hz .fill.neg{background:var(--ink)}
+.hzkey{display:flex;flex-wrap:wrap;gap:.4rem 1.2rem;font-family:var(--head);font-size:.85rem;color:var(--ink-soft);margin-top:.3rem}
+.hzkey span{display:inline-flex;align-items:center;gap:.4rem}
+.hzkey i{display:inline-block;width:14px;height:10px;border-radius:3px;background:var(--blue)}
+.hzkey i.neg{background:var(--ink)}
+.hzkey i.ns{background:transparent;border:2px solid var(--blue)}
+.axis-labels{display:flex;justify-content:space-between;font-family:var(--head);font-size:.8rem;color:var(--ink-soft);margin-top:-.3rem}
+
+/* embed */
+.embed{border:1px solid var(--sky-deep);border-radius:16px;overflow:hidden;background:var(--white);margin-top:1.2rem}
+.embed iframe{display:block;width:100%;height:78vh;min-height:560px;max-height:760px;border:0}
+.embed-foot{padding:.7rem 1rem;background:var(--mist);font-size:.92rem;color:var(--ink-soft);border-top:1px solid var(--line)}
+
+.limits{margin:1.2rem 0 0;padding:0;list-style:none}
+.limits li{display:flex;gap:.9rem;margin:0 0 1rem}
+.limits li::before{content:"";flex:none;width:8px;height:8px;margin-top:.65em;background:var(--blue);border-radius:2px}
+.limits b{font-family:var(--head);font-weight:600}
+
+footer{margin-top:4rem;background:var(--sky);padding:2rem 0 2.6rem;font-size:.98rem}
+footer p{margin:0 0 .6rem}
+footer .tools{font-family:var(--head);font-size:.92rem;color:var(--ink-soft)}
+
+@media (min-width:720px){
+  .hero{padding:3.4rem 0 3.6rem}
+  .hero-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:2.6rem;align-items:start}
+  h1{margin-top:.4rem}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  .draw{animation:none;stroke-dashoffset:0}
+  *{transition:none !important}
+}
+
+/* portfolio style banding: dark bar, steel blue bands, light grey sections */
+.bar{background:#1c1818;border-bottom:0;backdrop-filter:none}
+.brand{color:#fff;font-weight:600}
+details.menu summary{background:rgba(255,255,255,.14);color:#fff}
+details.menu[open] summary{background:rgba(255,255,255,.26)}
+.hero{background:var(--blue)}
+h1,.lede{color:#fff}
+.panel{border:0}
+.band{background:var(--blue);color:#fff}
+.band h2.sec,.band b,.band .t{color:#fff}
+.band a{color:#fff}
+.teams .t span:last-child{color:inherit}
+.band .teams .t span:last-child{color:rgba(255,255,255,.82)}
+.band .track{background:rgba(255,255,255,.24)}
+.band .track i{background:#fff}
+.band .status li{border-color:rgba(255,255,255,.32)}
+footer.band{margin-top:4rem}
+footer.band .tools{color:rgba(255,255,255,.82)}
+.aside{background:var(--mist);border-left:4px solid var(--blue);border-radius:0 12px 12px 0}
+dl.frames dd{border-left-color:var(--blue)}
+.tint:not(.band){background:var(--mist)}
+.tint:not(.band) .hz .rail{background:#fff}
+.keyrow:hover{background:var(--mist)}
+.keyrow[aria-pressed="true"]{background:var(--sky)}
+section.band,footer.band{background:var(--blue);color:#fff}
+</style>
+</head>
+
+<body>
+<a href="#idea" style="position:absolute;left:-999px" onfocus="this.style.left='8px';this.style.top='8px';this.style.background='#fff';this.style.padding='8px';this.style.zIndex=50" onblur="this.style.left='-999px'">Skip to content</a>
+
+<header class="bar">
+  <div class="bar-in">
+    <a class="brand" href="#top">Aegis Systems</a>
+    <details class="menu" id="menu">
+      <summary>Sections</summary>
+      <nav class="menu-list" aria-label="Sections">
+        <a href="#top">The curves</a>
+        <a href="#idea">The headline</a>
+        <a href="#psychology">Theory vs data</a>
+        <a href="#company">Meet Aegis</a>
+        <a href="#method">Why not just predict?</a>
+        <a href="#drivers">What tilts the curve</a>
+        <a href="#model">Try the model</a>
+        <a href="#limits">Before quoting a number</a>
+      </nav>
+    </details>
+  </div>
+</header>
+
+<main>
+
+<!-- HERO -->
+<section class="hero" id="top">
+  <div class="wide">
+    <div class="hero-grid">
+      <div>
+        <h1>Does low attrition mean a team is healthy?</h1>
+        <p class="lede">I invented a company of 800 engineers, put it through three rounds of layoffs, and watched who quietly stopped trying. Teams that were easy to leave and teams that were not slid at almost the same pace. What mattered was how safe people felt speaking up, and how afraid they were of AI.</p>
+      </div>
+
+      <div class="panel">
+        <h2>Engineers who have not yet crossed into quiet quitting</h2>
+        <p class="sub">Drag across the chart to read any month. Tap a team below to isolate its line.</p>
+        <svg id="km" viewBox="0 0 360 270" role="img" tabindex="0"
+             aria-label="Kaplan Meier survival curves for five engineering teams over 36 months. All five fall from 100 percent to between 49 and 56 percent. Use left and right arrow keys to read each month."></svg>
+        <div class="readout" aria-live="polite">
+          <div class="readout-head"><strong id="monthLabel">Month 36</strong><span id="crossLabel"></span></div>
+          <div id="keys"></div>
+        </div>
+        <p class="note">The vertical axis starts at 40% so the steps are readable. Dotted lines mark the three layoff waves. All data is synthetic.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- IDEA -->
+<section class="block" id="idea">
+  <div class="wrap">
+    <h2 class="sec">The headline that started this</h2>
+    <p>On Tuesday, March 31, 2026, Oracle began emailing employees around 6 a.m. to say it was their last day. Estimates of the cut ran from 20,000 to 30,000 jobs, and CNBC later settled on 21,000. SkillSyncer's tracker ranks it the largest layoff of 2026.</p>
+    <p>Now think about who is still at their desk the next morning. They have watched a much bigger wave build (the same tracker counted 519 layoffs and 225,122 workers across all industries by September 24) and they are quietly pricing their own options. If those options look thin, they do not resign. A manager sees no letter and assumes things are fine.</p>
+    <p>That assumption is what I wanted to test. I am saying nothing about Oracle's people. Aegis is invented, and so is everyone in it.</p>
+    <p class="src">Sources: <a href="https://www.forbes.com/sites/maryroeloffs/2026/06/23/ai-cost-21000-jobs-at-oracle-this-year-and-more-layoffs-could-be-coming/" target="_blank" rel="noopener noreferrer">Forbes</a>, <a href="https://www.computerworld.com/article/3816579/tech-layoffs-this-year-a-timeline.html" target="_blank" rel="noopener noreferrer">Computerworld</a>, and the <a href="https://skillsyncer.com/layoffs-tracker" target="_blank" rel="noopener noreferrer">SkillSyncer Layoffs Tracker</a> (CC BY 4.0).</p>
+  </div>
+</section>
+
+<!-- PSYCHOLOGY -->
+<section class="block" id="psychology">
+  <div class="wrap">
+    <h2 class="sec">What the theory predicted, and what the data said</h2>
+    <p>Before simulating anything, I wrote down what organizational psychology would expect. Then I checked each prediction against the model.</p>
+    <dl class="frames">
+      <dt>Hirschman: when you cannot leave and cannot speak, you go quiet</dt>
+      <dd>Albert Hirschman, later extended by Caryl Rusbult, described four responses to a bad situation: exit, voice, loyalty and neglect. The speaking up half held up, as the next entry shows. The cannot leave half did not show as faster disengagement, because I wrote mobility to decide who exits, not who disengages.</dd>
+      <dt>Edmondson: people stay engaged where concerns get heard</dt>
+      <dd>Amy Edmondson's psychological safety was the strongest protective factor, cutting the risk to roughly a third for each extra point.</dd>
+      <dt>Brockner and Hobfoll: threat to security drains effort</dt>
+      <dd>Joel Brockner's work on layoff survivors and Stevan Hobfoll's Conservation of Resources both expect insecurity to pull effort back. AI displacement anxiety was the strongest risk factor, nearly tripling the risk per point, and downsizing exposure added more on top.</dd>
+      <dt>Bakker and Demerouti: demands without resources wear people down</dt>
+      <dd>Only half tested. The resources side shows up as safety, but I did not model workload, so I cannot say whether it mattered.</dd>
+    </dl>
+    <div class="aside"><strong>A word on quiet quitting.</strong> I use it to mean staying while doing the minimum, which is disengagement in the sense William Kahn and Wilmar Schaufeli describe. The dataset flags it when a hidden score passes a cutoff I picked, so treat it as a modeling choice and not a measured fact.</div>
+  </div>
+</section>
+
+<!-- COMPANY -->
+<section class="tint band" id="company">
+  <div class="wrap">
+    <h2 class="sec">Meet Aegis</h2>
+    <p>Eight hundred engineers, five teams, three years. The teams differ in one thing I controlled on purpose: how easily their people could get hired somewhere else. Higher means easier to leave. The number in brackets is how many engineers sit on the team.</p>
+    <ul class="teams" aria-label="External mobility by team">
+      <li><div class="t"><span>Platform Infrastructure</span><span>0.28 &nbsp;(179)</span></div><div class="track"><i style="width:28%"></i></div></li>
+      <li><div class="t"><span>DevOps / SRE</span><span>0.34 &nbsp;(140)</span></div><div class="track"><i style="width:34%"></i></div></li>
+      <li><div class="t"><span>Backend Engineering</span><span>0.46 &nbsp;(232)</span></div><div class="track"><i style="width:46%"></i></div></li>
+      <li><div class="t"><span>Data Engineering</span><span>0.50 &nbsp;(143)</span></div><div class="track"><i style="width:50%"></i></div></li>
+      <li><div class="t"><span>ML Platform</span><span>0.71 &nbsp;(106)</span></div><div class="track"><i style="width:71%"></i></div></li>
+    </ul>
+    <p style="margin-top:1.6rem">Layoff waves land at months 9, 19 and 28, the dotted lines in the chart at the top. Each one leaves a team more downsized, its people more anxious and less sure it is safe to speak. Between waves everyone drifts a little, and about one engineer in fifty goes through a reorg in any given month.</p>
+    <p>At any point an engineer is in one of three places:</p>
+    <ul class="status">
+      <li><b>Still engaged.</b> Where everyone starts.</li>
+      <li><b>Quiet quitting.</b> Their hidden score has crossed the cutoff. Once flagged, always flagged.</li>
+      <li><b>Gone.</b> They resigned and leave the data.</li>
+    </ul>
+    <p style="margin-top:1.2rem">The twist I wrote in: disengaged engineers on the high mobility team, ML Platform, tend to leave. Disengaged engineers everywhere else tend to stay. That single rule is why an exit rate and an engagement level can tell opposite stories.</p>
+  </div>
+</section>
+
+<!-- METHOD -->
+<section class="block" id="method">
+  <div class="wrap">
+    <h2 class="sec">Why not just predict who quits?</h2>
+    <p>An ordinary prediction model asks a yes or no question at one moment. This question needs a when, and it has to cope with people I lose track of. Survival analysis handles both. Someone who resigns, or who is still engaged when I stop watching, is censored: they tell me something up to a point and then go silent.</p>
+    <figure>
+      <svg viewBox="0 0 360 200" class="cens" role="img" aria-label="Three example engineers on a 36 month timeline. Engineer A crosses into quiet quitting at month 14. Engineer B leaves at month 22 before disengaging. Engineer C is still engaged when the window closes at month 36.">
+        <g>
+          <text x="40" y="26">Engineer A crosses into quiet quitting at month 14</text>
+          <line x1="40" y1="40" x2="156.7" y2="40" stroke="#1f6e96" stroke-width="3" stroke-linecap="round"/>
+          <circle cx="156.7" cy="40" r="6" fill="#1d2b36"/>
+          <text x="168" y="44" style="font-weight:600">event</text>
+
+          <text x="40" y="76">Engineer B leaves at month 22 before disengaging</text>
+          <line x1="40" y1="90" x2="223.3" y2="90" stroke="#1f6e96" stroke-width="3" stroke-linecap="round"/>
+          <path d="M217.5 84.5l11.6 11M229.1 84.5l-11.6 11" stroke="#1d2b36" stroke-width="2.4" stroke-linecap="round"/>
+          <text x="238" y="94" style="font-weight:600">censored</text>
+
+          <text x="40" y="126">Engineer C is still engaged when the window closes</text>
+          <line x1="40" y1="140" x2="340" y2="140" stroke="#1f6e96" stroke-width="3" stroke-linecap="round"/>
+          <line x1="340" y1="131" x2="340" y2="149" stroke="#1d2b36" stroke-width="2.4" stroke-linecap="round"/>
+          <text x="292" y="162" style="font-weight:600">censored</text>
+
+          <line x1="40" y1="176" x2="340" y2="176" stroke="#bfd5e2"/>
+          <g class="ax">
+            <text class="ax" x="40" y="192" text-anchor="middle">0</text>
+            <text class="ax" x="140" y="192" text-anchor="middle">12</text>
+            <text class="ax" x="240" y="192" text-anchor="middle">24</text>
+            <text class="ax" x="340" y="192" text-anchor="middle">36 months</text>
+          </g>
+        </g>
+      </svg>
+      <figcaption>The three endings every engineer can have. In the simulated data, 311 cross, 184 leave first, and the other 305 are still engaged when the 36 months run out.</figcaption>
+    </figure>
+    <h3>Two tools from lifelines</h3>
+    <p>lifelines is the Python library behind both. The Kaplan Meier estimator draws the curve at the top of this page. The Cox proportional hazards model asks how much each factor tilts that curve: a hazard ratio of 2 means double the risk, and 0.5 means half. Its concordance score is 0.79, meaning that for two engineers it ranks the earlier crosser higher about 79 times in 100.</p>
+  </div>
+</section>
+
+<!-- DRIVERS -->
+<section class="tint" id="drivers">
+  <div class="wrap">
+    <h2 class="sec">What tilts the curve</h2>
+    <p>Bars are hazard ratios on a log scale, so doubling the risk and halving it get the same length. Right speeds up quiet quitting. Left slows it down.</p>
+    <ul class="hz" aria-label="Hazard ratios from the Cox model">
+      <li><div class="lab"><b>Psychological safety, per point (1 to 5)</b><em>0.33</em></div><div class="rail"><span class="fill neg" style="right:50%;width:42.7%"></span></div></li>
+      <li><div class="lab"><b>AI displacement anxiety, per point (1 to 5)</b><em>2.86</em></div><div class="rail"><span class="fill" style="left:50%;width:40.4%"></span></div></li>
+      <li><div class="lab"><b>Team downsizing exposure, per 10 percentage points</b><em>1.48</em></div><div class="rail"><span class="fill" style="left:50%;width:15%"></span></div></li>
+      <li><div class="lab"><b>Team external mobility</b><em>1.43</em></div><div class="rail"><span class="fill ns" style="left:50%;width:13.8%"></span></div></li>
+      <li><div class="lab"><b>Experienced a management reorg</b><em>1.23</em></div><div class="rail"><span class="fill ns" style="left:50%;width:7.9%"></span></div></li>
+      <li><div class="lab"><b>Tenure, per year at the start</b><em>0.95</em></div><div class="rail"><span class="fill ns neg" style="right:50%;width:1.8%"></span></div></li>
+    </ul>
+    <div class="axis-labels"><span>slows the slide</span><span>no effect</span><span>speeds it up</span></div>
+    <div class="hzkey" style="margin-top:1rem">
+      <span><i></i>statistically significant, risk</span>
+      <span><i class="neg"></i>statistically significant, protective</span>
+      <span><i class="ns"></i>not significant</span>
+    </div>
+    <p style="margin-top:1.4rem">Two factors do most of the work. Each extra point of psychological safety cuts the risk to about a third, and each extra point of AI anxiety multiplies it by nearly three. Downsizing exposure counts as well, with a catch described under the first caveat below. The three outlined bars (mobility, reorgs, tenure) cannot be told apart from no effect at all.</p>
+    <p>So, back to the opening question. In this simulation, how hard a team was to leave told me nothing about how fast it disengaged, because I built it that way. What I take from that: an exit rate measures who is able to leave. Engagement needs its own measurement.</p>
+    <p class="src">Downsizing and tenure are converted from the model's raw units (per 100 points, per month) into units a person can picture.</p>
+  </div>
+</section>
+
+<!-- MODEL -->
+<section class="block" id="model">
+  <div class="wrap">
+    <h2 class="sec">Try the model yourself</h2>
+    <p>This is the live app, fitting the same models as it loads. Scroll to its sliders, change how anxious or how safe the whole company feels, and see how far the 47.5% moves.</p>
+  </div>
+  <div class="wide">
+    <div class="embed">
+      <iframe src="https://aegis-systems-survival-analysis-tnnbzkort5zuxjsj8lkj67.streamlit.app/?embed=true" loading="lazy" title="Aegis Systems quiet quitting model, Streamlit app" allow="clipboard-write"></iframe>
+      <div class="embed-foot">Free Streamlit apps go to sleep when nobody visits. If the frame shows a wake up button, tap it and give it a few seconds. You can also <a href="https://aegis-systems-survival-analysis-tnnbzkort5zuxjsj8lkj67.streamlit.app/" target="_blank" rel="noopener noreferrer">open the dashboard on its own page</a>.</div>
+    </div>
+  </div>
+</section>
+
+<!-- LIMITS -->
+<section class="block" id="limits">
+  <div class="wrap">
+    <h2 class="sec">Read this before quoting a number</h2>
+    <ul class="limits">
+      <li><span><b>I wrote the answer into the data.</b> Anxiety, safety and downsizing drive disengagement in my generator, so the model finding them proves the plumbing works and nothing more.</span></li>
+      <li><span><b>The downsizing number is probably too big.</b> I measured exposure across each person's whole window, which includes months after they had already disengaged. A model with time varying inputs would fix that.</span></li>
+      <li><span><b>47.5% is an estimate, not a head count.</b> 311 of 800 (38.9%) actually crossed. The gap exists because people who resigned early are treated as censored.</span></li>
+      <li><span><b>The sliders predict, they do not prove.</b> They apply the fitted ratios to the overall curve.</span></li>
+      <li><span><b>The survey scores are invented.</b> Anxiety and safety come from a generator on a 1 to 5 scale, not from a validated questionnaire.</span></li>
+    </ul>
+    <div class="aside"><strong>Real versus invented.</strong> Real: the layoff events and totals in the first section. Invented: everything else, including every engineer and every figure from the model.</div>
+  </div>
+</section>
+
+</main>
+
+<footer class="band">
+  <div class="wrap">
+    <p>Aegis Systems is a fictional company. All data on this page is synthetic.</p>
+    <p class="tools">Built with Python, pandas, NumPy, Faker, lifelines, Streamlit and SQL.</p>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var KM = {"All":[1.0,1.0,1.0,1.0,1.0,0.9987,0.9961,0.9948,0.9922,0.9895,0.9789,0.9735,0.9695,0.9654,0.9584,0.9444,0.9374,0.9303,0.9275,0.9161,0.8944,0.8711,0.8579,0.8358,0.8179,0.7952,0.7768,0.7691,0.744,0.6999,0.657,0.6327,0.5953,0.5739,0.5506,0.5405,0.5252],"Backend Engineering":[1.0,1.0,1.0,1.0,1.0,0.9956,0.9911,0.9911,0.9911,0.9911,0.982,0.982,0.9773,0.9773,0.9628,0.9529,0.948,0.938,0.938,0.933,0.9177,0.892,0.8713,0.8402,0.819,0.7818,0.7657,0.7439,0.7001,0.6725,0.6174,0.6006,0.5666,0.5496,0.5099,0.5099,0.4865],"Data Engineering":[1.0,1.0,1.0,1.0,1.0,1.0,1.0,0.9928,0.9928,0.9854,0.9705,0.963,0.9554,0.9478,0.9478,0.9478,0.9478,0.9478,0.9478,0.9235,0.9068,0.8733,0.8733,0.8563,0.839,0.8125,0.7764,0.7764,0.7581,0.7307,0.6752,0.6277,0.5801,0.5408,0.5211,0.5113,0.5015],"DevOps / SRE":[1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,0.9846,0.9846,0.9769,0.9769,0.9692,0.9692,0.9615,0.9537,0.946,0.9382,0.9303,0.9065,0.8824,0.8583,0.8502,0.8338,0.8093,0.7843,0.7674,0.759,0.759,0.7078,0.6822,0.6652,0.6055,0.5882,0.5703,0.5614,0.5524],"ML Platform":[1.0,1.0,1.0,1.0,1.0,1.0,0.9898,0.9898,0.9898,0.9795,0.9589,0.9378,0.9378,0.9162,0.9162,0.9053,0.8944,0.8944,0.8944,0.8944,0.8605,0.8488,0.8372,0.8256,0.8016,0.777,0.777,0.777,0.7636,0.6818,0.6679,0.6679,0.6388,0.624,0.6087,0.5607,0.5442],"Platform Infrastructure":[1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,0.9943,0.9884,0.9884,0.9884,0.9824,0.9458,0.9335,0.9212,0.9151,0.9089,0.8844,0.8658,0.8471,0.8222,0.8159,0.8159,0.7968,0.7968,0.7644,0.7121,0.6656,0.6319,0.6116,0.5912,0.5774,0.5705,0.5566]};
+  var TEAMS = [
+    {k:"Platform Infrastructure", c:"#1f9d8b"},
+    {k:"DevOps / SRE",            c:"#6f7fd6"},
+    {k:"Backend Engineering",     c:"#1b6fb3"},
+    {k:"Data Engineering",        c:"#4aa8e8"},
+    {k:"ML Platform",             c:"#8a63c9"}
+  ];
+  var WAVES = [9,19,28];
+  var NS = "http://www.w3.org/2000/svg";
+  var svg = document.getElementById("km");
+  var L=40, R=12, T=22, B=34, W=360, H=270;
+  var PW=W-L-R, PH=H-T-B, YMIN=0.4;
+  function X(m){return L+PW*m/36}
+  function Y(s){return T+PH*(1-(s-YMIN)/(1-YMIN))}
+  function el(n,a,p){var e=document.createElementNS(NS,n);for(var k in a)e.setAttribute(k,a[k]);(p||svg).appendChild(e);return e}
+
+  // grid + axes
+  [0.4,0.5,0.6,0.7,0.8,0.9,1.0].forEach(function(v){
+    el("line",{x1:L,x2:W-R,y1:Y(v),y2:Y(v),"class":"gridline"+(v===0.5?" half":"")});
+    var t=el("text",{x:L-6,y:Y(v)+3.5,"text-anchor":"end"});t.textContent=Math.round(v*100)+"%";
+  });
+  [0,6,12,18,24,30,36].forEach(function(m){
+    var t=el("text",{x:X(m),y:H-16,"text-anchor":"middle"});t.textContent=m;
+  });
+  var at=el("text",{x:L+PW/2,y:H-3,"text-anchor":"middle"});at.textContent="months since observation began";
+
+  // layoff waves
+  WAVES.forEach(function(m,i){
+    el("line",{x1:X(m),x2:X(m),y1:T-4,y2:T+PH,"class":"wave"});
+    var t=el("text",{x:X(m),y:T-8,"text-anchor":"middle"});t.textContent="wave "+(i+1);
+  });
+
+  // curves
+  function stepPath(a){
+    var d="M"+X(0)+" "+Y(a[0]);
+    for(var m=1;m<a.length;m++){d+=" H"+X(m)+" V"+Y(a[m]);}
+    return d;
+  }
+  var curves={};
+  TEAMS.forEach(function(t){
+    curves[t.k]=el("path",{d:stepPath(KM[t.k]),stroke:t.c,"class":"curve team draw",pathLength:1});
+  });
+  curves["All"]=el("path",{d:stepPath(KM["All"]),"class":"curve all draw",pathLength:1});
+
+  // cursor + dots
+  var cursor=el("line",{id:"cursor",x1:X(36),x2:X(36),y1:T,y2:T+PH});
+  var dots={};
+  TEAMS.forEach(function(t){dots[t.k]=el("circle",{r:3,fill:t.c,stroke:"#fff","stroke-width":1.2})});
+  dots["All"]=el("circle",{r:4.4,fill:"#1d2b36",stroke:"#fff","stroke-width":1.5});
+
+  // legend / readout rows
+  var keys=document.getElementById("keys");
+  var rows={};
+  function mkRow(name,color,cls){
+    var b=document.createElement("button");
+    b.type="button";b.className="keyrow "+(cls||"");b.setAttribute("aria-pressed","false");
+    b.innerHTML='<span class="sw" style="color:'+color+'"></span><span>'+name+'</span><span class="v"></span>';
+    keys.appendChild(b);rows[name]=b;
+    b.addEventListener("click",function(){setFocus(focus===name?null:name)});
+  }
+  mkRow("All teams","#1d2b36","all");
+  TEAMS.forEach(function(t){mkRow(t.k,t.c)});
+
+  var focus=null;
+  function setFocus(name){
+    focus=name;
+    var key = name==="All teams"?"All":name;
+    Object.keys(rows).forEach(function(n){rows[n].setAttribute("aria-pressed",String(n===name))});
+    Object.keys(curves).forEach(function(k){
+      var dim = key && k!==key && !(k==="All" && false);
+      curves[k].classList.toggle("dim",!!dim);
+      dots[k].style.opacity = dim?0.15:1;
+    });
+  }
+
+  var month=36;
+  var monthLabel=document.getElementById("monthLabel"), crossLabel=document.getElementById("crossLabel");
+  function setMonth(m){
+    month=Math.max(0,Math.min(36,m));
+    cursor.setAttribute("x1",X(month));cursor.setAttribute("x2",X(month));
+    monthLabel.textContent="Month "+month;
+    var all=KM["All"][month];
+    crossLabel.textContent=Math.round((1-all)*1000)/10+"% of all engineers have crossed";
+    Object.keys(dots).forEach(function(k){
+      dots[k].setAttribute("cx",X(month));dots[k].setAttribute("cy",Y(KM[k][month]));
+    });
+    rows["All teams"].querySelector(".v").textContent=(KM["All"][month]*100).toFixed(1)+"%";
+    TEAMS.forEach(function(t){rows[t.k].querySelector(".v").textContent=(KM[t.k][month]*100).toFixed(1)+"%"});
+  }
+
+  function fromEvent(e){
+    var r=svg.getBoundingClientRect();
+    var x=(e.clientX-r.left)/r.width*W;
+    setMonth(Math.round((x-L)/PW*36));
+  }
+  var dragging=false;
+  svg.addEventListener("pointerdown",function(e){dragging=true;fromEvent(e)});
+  svg.addEventListener("pointermove",function(e){if(dragging||e.pointerType==="mouse")fromEvent(e)});
+  window.addEventListener("pointerup",function(){dragging=false});
+  svg.addEventListener("keydown",function(e){
+    if(e.key==="ArrowLeft"){setMonth(month-1);e.preventDefault()}
+    if(e.key==="ArrowRight"){setMonth(month+1);e.preventDefault()}
+    if(e.key==="Home"){setMonth(0);e.preventDefault()}
+    if(e.key==="End"){setMonth(36);e.preventDefault()}
+  });
+  setMonth(36);
+
+  // close the section menu after choosing a link
+  var menu=document.getElementById("menu");
+  menu.querySelectorAll("a").forEach(function(a){a.addEventListener("click",function(){menu.removeAttribute("open")})});
+  document.addEventListener("click",function(e){if(!menu.contains(e.target))menu.removeAttribute("open")});
+})();
+</script>
+</body>
+</html>
