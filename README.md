@@ -1,3 +1,7 @@
+[Live site](https://professorpasqua-byte.github.io/aegis-systems-survival-analysis/)
+
+
+
 # Aegis Systems: Quiet Quitting Survival Analysis
 
 **Does low attrition mean a team is healthy, or are people just stuck?**
